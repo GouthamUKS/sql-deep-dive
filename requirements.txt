@@ -1,0 +1,6 @@
+psycopg2-binary==2.9.9
+jupyter==1.0.0
+pandas==2.2.2
+sqlalchemy==2.0.30
+ipykernel==6.29.4
+numpy==1.26.4
