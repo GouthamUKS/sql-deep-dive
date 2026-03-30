@@ -74,20 +74,32 @@ def run_file(conn, filename: str, label: str, use_explain: bool = False):
     print(f"  {label}")
     print(f"{'=' * 70}")
 
-    statements = [s.strip() for s in raw.split(";") if s.strip()]
+    cleaned_lines = [l for l in raw.split("\n") if not l.strip().startswith("--")]
+    cleaned_raw = "\n".join(cleaned_lines)
+    statements = [s.strip() for s in cleaned_raw.split(";") if s.strip()]
 
     with conn.cursor() as cur:
         for stmt in statements:
-            if not stmt or stmt.startswith("--"):
+            if not stmt:
                 continue
-            first_line = stmt.split("\n")[0].strip()
-            if first_line.startswith("--"):
-                print(f"\n  {first_line}")
+            lines = stmt.split("\n")
+            comment_lines = []
+            sql_lines = []
+            for line in lines:
+                if line.strip().startswith("--"):
+                    comment_lines.append(line)
+                else:
+                    sql_lines.append(line)
+            actual_sql = "\n".join(sql_lines).strip()
+            if not actual_sql:
+                continue
+            if comment_lines:
+                print(f"\n  {comment_lines[0].strip()}")
 
-            lowered = stmt.lower().lstrip()
+            lowered = actual_sql.lower().lstrip()
             if lowered.startswith("explain"):
                 try:
-                    cur.execute(stmt)
+                    cur.execute(actual_sql)
                     plan_rows = cur.fetchall()
                     print("\n  EXPLAIN ANALYZE output (first 20 lines):")
                     for row in plan_rows[:20]:
@@ -97,7 +109,7 @@ def run_file(conn, filename: str, label: str, use_explain: bool = False):
                     conn.rollback()
             else:
                 try:
-                    rows, cols, elapsed = run_query(cur, stmt)
+                    rows, cols, elapsed = run_query(cur, actual_sql)
                     print(f"\n  Query completed in {elapsed * 1000:.1f} ms  |  {len(rows)} rows")
                     print_table(rows, cols, max_rows=8)
                 except Exception as exc:

@@ -258,7 +258,22 @@ def load_schema(conn):
 
 
 def bulk_insert(conn, table: str, df: pd.DataFrame, columns: list):
-    records = [tuple(row) for row in df[columns].itertuples(index=False, name=None)]
+    import math
+    def clean(v):
+        if v is None:
+            return None
+        try:
+            if hasattr(v, '__class__') and v.__class__.__name__ in ('NaTType', 'NAType'):
+                return None
+        except Exception:
+            pass
+        try:
+            if hasattr(v, '__float__') and math.isnan(float(v)):
+                return None
+        except Exception:
+            pass
+        return v
+    records = [tuple(clean(v) for v in row) for row in df[columns].itertuples(index=False, name=None)]
     placeholders = "(" + ",".join(["%s"] * len(columns)) + ")"
     col_str = ", ".join(columns)
     sql = f"INSERT INTO {table} ({col_str}) VALUES %s ON CONFLICT DO NOTHING"
